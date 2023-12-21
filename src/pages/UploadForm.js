@@ -9,11 +9,13 @@ import {
   CircularProgress,
   FormControl,
   Grid,
+  IconButton,
   MenuItem,
   Modal,
   TextField,
   Typography,
 } from "@mui/material";
+import UndoIcon from "@mui/icons-material/Undo";
 
 function formatTime(date) {
   const year = date.getFullYear();
@@ -74,6 +76,7 @@ function UploadForm() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showData, setShowData] = useState(false);
+  const [select, setSelect] = useState(false);
   const [isReadOnly, setReadOnly] = useState(
     localStorage.getItem("user_name") !== null
   );
@@ -108,20 +111,20 @@ function UploadForm() {
     setData,
     setLoading
   ) => {
-    // console.log(event);
+    console.log(event);
     // console.log(event.target[0].value);
     event.preventDefault();
     if (
-      (event.target[1].value === "" && event.target[2].value === "") ||
-      (event.target[1].value !== "" && event.target[2].value !== "")
+      (event.target[3].value === "" && event.target[4].value === "") ||
+      (event.target[3].value !== "" && event.target[4].value !== "")
     ) {
       handleOpen("전송애러", "파일을 한개만(는) 선택해야합니다");
     } else {
       setLoading(true);
       const data =
-        event.target[2].value !== ""
-          ? event.target[2].files[0]
-          : event.target[3].files[0];
+        event.target[3].value !== ""
+          ? event.target[3].files[0]
+          : event.target[4].files[0];
       const form_data = new FormData();
       form_data.append("file", data);
       axios({
@@ -149,8 +152,11 @@ function UploadForm() {
               "L-ERROR",
             ];
             let idx = 0;
-            data["detail"].forEach((data) => {
-              score_detail.push({ TYPE: score_label[idx], VALUE: data });
+            score_label.forEach((type) => {
+              score_detail.push({
+                TYPE: type,
+                VALUE: data["detail"][idx] ?? "0",
+              });
               idx += 1;
             });
           } else {
@@ -162,8 +168,11 @@ function UploadForm() {
               "L-ERROR",
             ];
             let idx = 0;
-            data["detail"].forEach((data) => {
-              score_detail.push({ TYPE: score_label[idx], VALUE: data });
+            score_label.forEach((type) => {
+              score_detail.push({
+                TYPE: type,
+                VALUE: data["detail"][idx] ?? "0",
+              });
               idx += 1;
             });
           }
@@ -171,10 +180,10 @@ function UploadForm() {
           setData(data);
         })
         .catch((error) => {
-          // console.log(error);
-          if (error.request.status === 400) {
-            handleOpen("사진에러", "SDVX 사진이 아니거나, 사진이 불량합니다.");
-          }
+          console.log(error);
+          // if (error.request.status === 400) {
+          //   handleOpen("사진에러", "SDVX 사진이 아니거나, 사진이 불량합니다.");
+          // }
           // console.log(error);
         })
         .finally(() => {
@@ -224,6 +233,9 @@ function UploadForm() {
       })
       .finally(() => setLoading(false));
   };
+  const handleReset = () => {
+    setSelect(false);
+  };
   return (
     <>
       <KeepMountedModal
@@ -254,7 +266,11 @@ function UploadForm() {
       >
         <FormControl key="1" component="fieldset" variant="standard">
           <Grid container spacing={4} style={{ width: "100vw" }}>
-            <Grid item xs={2} sm={8} md={8} />
+            <Grid item xs={2} sm={8} md={8}>
+              <IconButton type="reset" onClick={handleReset}>
+                <UndoIcon />
+              </IconButton>
+            </Grid>
             <Grid item xs={6} sm={3} md={3}>
               {" "}
               <TextField
@@ -295,6 +311,10 @@ function UploadForm() {
                 component="label"
                 variant="contained"
                 size="large"
+                onChange={(event) =>
+                  setSelect(event.target.value !== undefined)
+                }
+                disabled={select}
                 fullWidth
               >
                 사진 찍기
@@ -313,6 +333,10 @@ function UploadForm() {
                 component="label"
                 variant="contained"
                 size="large"
+                onChange={(event) =>
+                  setSelect(event.target.value !== undefined)
+                }
+                disabled={select}
                 fullWidth
               >
                 사진 선택
@@ -376,7 +400,7 @@ function UploadForm() {
                   variant="standard"
                   fullWidth
                 >
-                  {["COMPLETE", "CRASH", "ULTIMATE CHAIN", "PERFECT"].map(
+                  {["COMPLETE", "CRASH", "ULTIMATECHAIN", "PERFECT"].map(
                     (option) => (
                       <MenuItem key={option} value={option}>
                         {option}
