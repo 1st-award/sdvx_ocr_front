@@ -1,5 +1,6 @@
 import axios from "axios";
-import React from "react";
+import DefaultDialog from "../components/DefaultDialog";
+import React, { useRef } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -12,7 +13,6 @@ import {
   Grid,
   IconButton,
   MenuItem,
-  Modal,
   TextField,
   Typography,
 } from "@mui/material";
@@ -30,71 +30,47 @@ function formatTime(date) {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}`;
 }
 
-function KeepMountedModal({ open, setOpen, title, descript }) {
-  const style = {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    width: 400,
-    bgcolor: "background.paper",
-    border: "2px solid #000",
-    boxShadow: 24,
-    p: 4,
-  };
-  const handleClose = () => setOpen(false);
-  return (
-    <div>
-      <Modal
-        keepMounted
-        open={open}
-        onClose={handleClose}
-        aria-labelledby="keep-mounted-modal-title"
-        aria-describedby="keep-mounted-modal-description"
-      >
-        <Box sx={style}>
-          <Typography id="keep-mounted-modal-title" variant="h6" component="h2">
-            {title}
-          </Typography>
-          <Typography id="keep-mounted-modal-description" sx={{ mt: 2 }}>
-            {descript}
-          </Typography>
-          <Button
-            variant="contained"
-            onClick={() => setOpen(false)}
-            style={{ marginLeft: "85%", marginTop: "5%" }}
-          >
-            닫기
-          </Button>
-        </Box>
-      </Modal>
-    </div>
-  );
-}
-
 function UploadForm() {
   const history = useNavigate();
-  const [open, setOpen] = useState(false);
+  const camera = useRef(null);
+  const picture = useRef(null);
   const [loading, setLoading] = useState(false);
   const [diffLoading, setDiffLoading] = useState(true);
   const [titleLoading, setTitleLoading] = useState(true);
   const [showData, setShowData] = useState(false);
   const [select, setSelect] = useState(false);
+  const [open, setOpen] = useState(false);
   const [difficulty, setDifficulty] = useState({});
   const [song_list, setSongList] = useState([]);
+  const [title, setTitle] = useState("");
+  const [descript, setDescript] = useState("");
+  // const [agreeText, setAgreeText] = useState("");
+  // const [disagreeText, setDisagreeText] = useState("");
   const [isReadOnly, setReadOnly] = useState(
     localStorage.getItem("user_name") !== null
   );
-  const [title, setTitle] = useState();
   const [user_name, setUserName] = useState(
     localStorage.getItem("user_name") ?? ""
   );
-  const [descript, setDescript] = useState("");
   const [data, setData] = useState({});
   const handleOpen = (title, descript) => {
     setTitle(title);
     setDescript(descript);
     setOpen(true);
+  };
+  const handleReset = () => {
+    setSelect(false);
+  };
+  const handleAgree = () => {
+    history("/rank");
+  };
+  const handleDisagree = () => {
+    camera.current.value = null;
+    picture.current.value = null;
+    setSelect(false);
+    setDiffLoading(true);
+    setTitleLoading(true);
+    setOpen(false);
   };
   const handleChange = (event, id) => {
     let value = event.target.value ?? event;
@@ -123,7 +99,10 @@ function UploadForm() {
       (event.target[3].value === "" && event.target[4].value === "") ||
       (event.target[3].value !== "" && event.target[4].value !== "")
     ) {
-      handleOpen("전송애러", "파일을 한개만(는) 선택해야합니다");
+      handleOpen(
+        "전송애러",
+        "파일을 한개만(는) 선택해야합니다. 다시시도 하시겠습니까?"
+      );
     } else {
       setLoading(true);
       const data =
@@ -222,23 +201,19 @@ function UploadForm() {
         })
         .catch((error) => {
           console.log(error);
-          // if (error.request.status === 400) {
-          //   handleOpen("사진에러", "SDVX 사진이 아니거나, 사진이 불량합니다.");
-          // }
-          // console.log(error);
+          if (
+            error.request.status !== undefined &&
+            error.request.status === 400
+          ) {
+            handleOpen("사진에러", "SDVX 사진이 아니거나, 사진이 불량합니다.");
+          }
         })
         .finally(() => {
           setLoading(false);
         });
     }
   };
-  const handleSaveSubmit = (
-    event,
-    handleOpen,
-    setLoading,
-    user_name,
-    history
-  ) => {
+  const handleSaveSubmit = (event, handleOpen, setLoading, user_name) => {
     event.preventDefault();
     setLoading(true);
     console.log(data);
@@ -266,24 +241,23 @@ function UploadForm() {
     })
       .then((result) => {
         // console.log(result);
-        handleOpen("저장 완료", "저장 되었습니다.");
-        history("/rank");
+        handleOpen("저장 완료", "");
       })
       .catch((error) => {
         console.log(error);
       })
       .finally(() => setLoading(false));
   };
-  const handleReset = () => {
-    setSelect(false);
-  };
   return (
     <>
-      <KeepMountedModal
+      <DefaultDialog
         open={open}
-        setOpen={setOpen}
         title={title}
         descript={descript}
+        agreeText="기록페이지 이동"
+        disagreeText="다시시도"
+        handleAgree={handleAgree}
+        handleDisagree={handleDisagree}
       />
       <Backdrop
         sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
@@ -368,6 +342,7 @@ function UploadForm() {
                   type="file"
                   accept="image/jpg, image/jpeg, image/png"
                   capture="camera"
+                  ref={camera}
                   hidden
                 />
               </Button>
@@ -389,6 +364,7 @@ function UploadForm() {
                 <input
                   type="file"
                   accept="image/jpg, image/jpeg, image/png"
+                  ref={picture}
                   hidden
                 />
               </Button>
@@ -407,7 +383,7 @@ function UploadForm() {
           component="form"
           noValidate
           onSubmit={(event) =>
-            handleSaveSubmit(event, handleOpen, setLoading, user_name, history)
+            handleSaveSubmit(event, handleOpen, setLoading, user_name)
           }
           sx={{ p: 2 }}
         >
