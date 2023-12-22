@@ -3,6 +3,7 @@ import React from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Autocomplete,
   Backdrop,
   Box,
   Button,
@@ -75,26 +76,30 @@ function UploadForm() {
   const history = useNavigate();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [diffLoading, setDiffLoading] = useState(true);
+  const [titleLoading, setTitleLoading] = useState(true);
   const [showData, setShowData] = useState(false);
   const [select, setSelect] = useState(false);
+  const [difficulty, setDifficulty] = useState({});
+  const [song_list, setSongList] = useState([]);
   const [isReadOnly, setReadOnly] = useState(
     localStorage.getItem("user_name") !== null
   );
-  const [title, setTittle] = useState();
+  const [title, setTitle] = useState();
   const [user_name, setUserName] = useState(
     localStorage.getItem("user_name") ?? ""
   );
   const [descript, setDescript] = useState("");
   const [data, setData] = useState({});
   const handleOpen = (title, descript) => {
-    setTittle(title);
+    setTitle(title);
     setDescript(descript);
     setOpen(true);
   };
-  const handleChange = (event) => {
-    const id = event.target.id ?? "";
-    const value = event.target.value ?? "";
-    if (!["title", "difficulty", "result", "score"].includes(id)) {
+  const handleChange = (event, id) => {
+    let value = event.target.value ?? event;
+    value = value instanceof Object ? "" : value;
+    if (id === "detail") {
       console.log(data["detail"]);
       const datum = data["detail"].find((datum) => datum["TYPE"] === id);
       console.log(datum);
@@ -111,7 +116,7 @@ function UploadForm() {
     setData,
     setLoading
   ) => {
-    console.log(event);
+    // console.log(event);
     // console.log(event.target[0].value);
     event.preventDefault();
     if (
@@ -136,7 +141,6 @@ function UploadForm() {
         data: form_data,
       })
         .then((result) => {
-          setShowData(true);
           const data = result.data.data[0];
           // console.log(result.data.data);
           // console.log(result.data.data["score_result"]);
@@ -178,6 +182,43 @@ function UploadForm() {
           }
           data["detail"] = score_detail;
           setData(data);
+          axios({
+            method: "get",
+            url: `https://b6da-222-103-88-211.ngrok-free.app/api/v1/${data["title"]}/info`,
+            headers: {
+              "ngrok-skip-browser-warning": "69420",
+            },
+          })
+            .then((data) => {
+              console.log(data);
+              console.log(data.data.data["DIFFICULTY"]);
+              setDifficulty(JSON.parse(data.data.data["DIFFICULTY"]));
+            })
+            .catch((error) => {
+              console.log(error);
+            })
+            .finally(() => {
+              setDiffLoading(false);
+            });
+          axios({
+            method: "get",
+            url: `https://b6da-222-103-88-211.ngrok-free.app/api/v1/title/all`,
+            headers: {
+              "ngrok-skip-browser-warning": "69420",
+            },
+          })
+            .then((data) => {
+              console.log(data);
+              console.log(data.data.data);
+              setSongList(data.data.data);
+            })
+            .catch((error) => {
+              console.log(error);
+            })
+            .finally(() => {
+              setTitleLoading(false);
+            });
+          setShowData(true);
         })
         .catch((error) => {
           console.log(error);
@@ -213,7 +254,7 @@ function UploadForm() {
     form_data.forEach((value, key) => {
       req_body[key] = value;
     });
-    console.log(req_body);
+    // console.log(req_body);
     axios({
       method: "post",
       url: "https://b6da-222-103-88-211.ngrok-free.app/api/v1/record",
@@ -251,6 +292,7 @@ function UploadForm() {
         <CircularProgress color="inherit" />
       </Backdrop>
       <Box
+        key="upload-form"
         component="form"
         noValidate
         onSubmit={(event) =>
@@ -264,7 +306,11 @@ function UploadForm() {
         }
         sx={{ p: 2 }}
       >
-        <FormControl key="1" component="fieldset" variant="standard">
+        <FormControl
+          key="upload-form-control"
+          component="fieldset"
+          variant="standard"
+        >
           <Grid container spacing={4} style={{ width: "100vw" }}>
             <Grid item xs={2} sm={8} md={8}>
               <IconButton type="reset" onClick={handleReset}>
@@ -355,8 +401,9 @@ function UploadForm() {
           </Grid>
         </FormControl>
       </Box>
-      {showData ? (
+      {showData && !diffLoading && !titleLoading ? (
         <Box
+          key="save-form"
           component="form"
           noValidate
           onSubmit={(event) =>
@@ -364,29 +411,56 @@ function UploadForm() {
           }
           sx={{ p: 2 }}
         >
-          <FormControl key="2" component="fieldset" variant="standard">
-            <Grid container spacing={5} style={{ width: "100vw" }}>
+          <FormControl
+            key="save-form-control"
+            component="fieldset"
+            variant="standard"
+          >
+            <Grid
+              key="save-form-layout"
+              container
+              spacing={5}
+              style={{ width: "100vw" }}
+            >
               <Grid item xs={8} sm={3} md={3}>
-                <TextField
+                <Autocomplete
                   required
                   id="title"
-                  label="곡 제목"
+                  freeSolo
                   value={data["title"] ?? ""}
-                  variant="standard"
-                  onChange={handleChange}
+                  onChange={(event, target) =>
+                    handleChange({ target: { value: target } }, "title")
+                  }
+                  options={song_list.map((option) => option)}
+                  renderInput={(params) => (
+                    <TextField
+                      variant="standard"
+                      id="title"
+                      {...params}
+                      label="제목"
+                    />
+                  )}
                   fullWidth
                 />
               </Grid>
               <Grid item xs={4} sm={3} md={3}>
                 <TextField
                   required
+                  select
                   id="difficulty"
                   label="난이도"
-                  value={data["difficulty"] ?? ""}
+                  value={data["difficulty"] || ""}
+                  onChange={(event) => handleChange(event, "difficulty")}
+                  defaultValue={data["difficulty"] || ""}
                   variant="standard"
-                  onChange={handleChange}
                   fullWidth
-                />
+                >
+                  {Object.entries(difficulty).map(([value, key]) => (
+                    <MenuItem key={key} value={value}>
+                      {value}
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Grid>
               <Grid item xs={7} sm={3} md={3}>
                 <TextField
@@ -395,7 +469,7 @@ function UploadForm() {
                   id="result"
                   label="결과"
                   value={data["result"] || ""}
-                  onChange={handleChange}
+                  onChange={(event) => handleChange(event, "result")}
                   defaultValue="COMPLETE"
                   variant="standard"
                   fullWidth
@@ -417,7 +491,7 @@ function UploadForm() {
                   label="점수"
                   value={data["score"] ?? ""}
                   variant="standard"
-                  onChange={handleChange}
+                  onChange={(event) => handleChange(event, "score")}
                   fullWidth
                 />
               </Grid>
@@ -430,11 +504,12 @@ function UploadForm() {
                 <Grid item xs={6} sm={3} md={3}>
                   <TextField
                     required
+                    key={data["TYPE"]}
                     id={data["TYPE"] ?? ""}
                     label={data["TYPE"] ?? ""}
                     value={data["VALUE"] ?? ""}
                     variant="standard"
-                    onChange={handleChange}
+                    onChange={(event) => handleChange(event, "detail")}
                     fullWidth
                   />
                 </Grid>
